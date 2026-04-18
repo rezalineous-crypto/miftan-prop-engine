@@ -42,7 +42,8 @@ export default function PropertiesPage() {
   const fetchProperties = async () => {
     try {
       const data = await getProperties();
-      setProperties(data);
+      const propertiesArray = Array.isArray(data) ? data : (data?.results || data?.data || []);
+      setProperties(propertiesArray);
     } catch (err) {
       setError('Failed to load properties');
     } finally {
