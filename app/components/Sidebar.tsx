@@ -90,10 +90,10 @@ export default function Sidebar({ menuItems, sidebarOpen, setSidebarOpen }: Side
 
             <div className="flex items-center gap-3 px-4 py-4 mt-2">
               <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                {user.full_name.charAt(0).toUpperCase()}
+                {user.full_name ? user.full_name.charAt(0).toUpperCase() : '?'}
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-semibold text-slate-900">{user.full_name}</span>
+                <span className="text-xs font-semibold text-slate-900">{user.full_name || 'User'}</span>
                 <span className="text-[10px] text-slate-500">Admin profile</span>
               </div>
             </div>

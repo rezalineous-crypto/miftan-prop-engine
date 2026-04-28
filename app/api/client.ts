@@ -7,6 +7,26 @@ const getAuthToken = () => {
   return null;
 };
 
+// Helper to get user data from localStorage
+const getUserData = () => {
+  if (typeof window !== 'undefined') {
+    const userJson = localStorage.getItem('user');
+    if (userJson && userJson !== 'undefined') {
+      return JSON.parse(userJson);
+    }
+  }
+  return null;
+};
+
+// Helper to get user_id from localStorage
+const getUserId = () => {
+  if (typeof window !== 'undefined') {
+    const userId = localStorage.getItem('user_id');
+    return userId ? parseInt(userId) : null;
+  }
+  return null;
+};
+
 const getHeaders = (includeAuth = true) => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -68,6 +88,17 @@ export const apiClient = {
   },
 };
 
+// Export user data helpers for use in components and API calls
+export const userDataClient = {
+  getUserId,
+  getUserData,
+  getUser: () => getUserData(),
+  getEmail: () => getUserData()?.email,
+  getFullName: () => getUserData()?.full_name,
+  getRoleId: () => getUserData()?.role_id,
+  isSuperAdmin: () => getUserData()?.is_super_admin || false,
+};
+
 // Auth APIs
 export const login = (email: string, passwordHash: string) =>
   apiClient.post('/api/auth/login-service/', { email, password_hash: passwordHash }, false);
@@ -97,6 +128,9 @@ export const createPropertyMonthlyConfig = (configData: { property_id: number; y
 export const createPropertyPerformance = (performanceData: { upload_id: number; approved_by: number }) =>
   apiClient.post('/api/com/property-performance-service/', performanceData);
 
+export const getPropertyPerformance = (params?: { property_id?: string; date?: string }) =>
+  apiClient.get('/api/com/property-performance-service/', params);
+
 export const getPropertyDiagnosisReport = (params?: { property_id?: string; month?: string }) =>
   apiClient.get('/api/com/property-diagnosis-report-service/', params);
 
@@ -106,3 +140,9 @@ export const getPropertyPerformanceReport = (params?: { property_id?: string; mo
 // Upload API
 export const uploadPerformance = (formData: FormData) =>
   apiClient.postFormData('/api/mgn/performance-uploads-service/', formData);
+
+export const getPerformanceUploads = () =>
+  apiClient.get('/api/mgn/performance-uploads-service/', { id: '-1' });
+
+export const getPerformanceUploadDetails = (id: number) =>
+  apiClient.get('/api/mgn/performance-uploads-service/', { id: String(id) });

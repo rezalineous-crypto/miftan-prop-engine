@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { login as apiLogin, logout as apiLogout, refreshTokenApi, register as apiRegister } from '../api/client';
 
 interface User {
-  id: number;
+  id: number;  // user_id from API
   email: string;
   full_name: string;
   role_id: number;
@@ -19,6 +19,8 @@ interface AuthContextType {
   register: (userData: Omit<User, 'id'> & { password_hash: string }) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  // Helper to get user_id for API calls
+  getUserId: () => number | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,15 +57,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const response = await apiLogin(email, password);
-      // Response structure: { status, message, data: { access_token, refresh_token, user_id, ... } }
+      // Response structure: { status, message, data: { access_token, refresh_token, user_id, email, full_name, role_id, is_super_admin } }
       const { data } = response;
-      const { access_token, refresh_token, user_id, ...userData } = data;
+      const { access_token, refresh_token, user_id, email: apiEmail, full_name, role_id, is_super_admin } = data;
+      
+      // Prepare user object
+      const user = {
+        id: user_id,
+        email: apiEmail,
+        full_name,
+        role_id,
+        is_super_admin,
+      };
+
+      // Update state
       setAccessToken(access_token);
       setRefreshToken(refresh_token);
-      setUser({ id: user_id, ...userData });
+      setUser(user);
+
+      // Store in localStorage
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('refresh_token', refresh_token);
-      localStorage.setItem('user', JSON.stringify({ id: user_id, ...userData }));
+      localStorage.setItem('user', JSON.stringify(user));
+      // Also store user_id separately for quick access in API calls
+      localStorage.setItem('user_id', String(user_id));
     } catch (error) {
       throw error;
     } finally {
@@ -96,10 +113,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    localStorage.removeItem('user_id');
+  };
+
+  const getUserId = () => {
+    if (user?.id) return user.id;
+    // Fallback to localStorage if context not yet loaded
+    if (typeof window !== 'undefined') {
+      const storedId = localStorage.getItem('user_id');
+      return storedId ? parseInt(storedId) : null;
+    }
+    return null;
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, refreshToken, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, accessToken, refreshToken, login, register, logout, isLoading, getUserId }}>
       {children}
     </AuthContext.Provider>
   );

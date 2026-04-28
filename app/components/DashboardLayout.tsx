@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/context';
 import { useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
-import { HomeIcon, BuildingOfficeIcon, CloudArrowUpIcon, DocumentChartBarIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, BuildingOfficeIcon, CloudArrowUpIcon, DocumentChartBarIcon, ChartBarIcon, SparklesIcon } from '@heroicons/react/24/outline';
 
 interface MenuItem {
   href: string;
@@ -21,6 +21,7 @@ interface DashboardLayoutProps {
 const defaultMenuItems: MenuItem[] = [
   { href: '/', label: 'Dashboard', description: 'Overview and stats', icon: HomeIcon },
   { href: '/properties', label: 'Properties', description: 'Manage properties', icon: BuildingOfficeIcon },
+  { href: '/performance/daily', label: 'Daily Performance', description: 'View daily performance metrics', icon: SparklesIcon },
   { href: '/performance/uploads', label: 'Performance Uploads', description: 'Upload performance data', icon: CloudArrowUpIcon },
   { href: '/reports/diagnosis', label: 'Diagnosis Reports', description: 'View diagnosis reports', icon: DocumentChartBarIcon },
   { href: '/reports/performance', label: 'Performance Reports', description: 'View performance reports', icon: ChartBarIcon },
