@@ -3,13 +3,14 @@
 import { useAuth } from '../auth/context';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { PlusIcon, Cog6ToothIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftStartOnRectangleIcon } from '@heroicons/react/24/outline';
 
-interface MenuItem {
+export interface MenuItem {
   href: string;
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
+  group?: string;
 }
 
 interface SidebarProps {
@@ -24,84 +25,102 @@ export default function Sidebar({ menuItems, sidebarOpen, setSidebarOpen }: Side
 
   if (!user) return null;
 
+  const groups = menuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
+    const key = item.group ?? 'Menu';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+
+  const initials = user.full_name
+    ? user.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : (user.email?.[0] ?? '?').toUpperCase();
+
   return (
     <>
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-50 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="flex flex-col h-full p-4 gap-2">
-          <div className="mb-8 px-4">
-            <h2 className="text-xl font-bold tracking-tighter text-indigo-900">MIFTAN</h2>
-            <p className="font-manrope text-xs font-medium tracking-tight text-slate-500">Enterprise Analytics</p>
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Logo */}
+        <div className="px-5 py-5 border-b border-white/5 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-900/50">
+              <span className="text-[0.65rem] font-black text-white tracking-widest">M</span>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white tracking-tight leading-none">MIFTAN</p>
+              <p className="text-[0.6rem] text-slate-500 mt-0.5 tracking-wide">Enterprise Analytics</p>
+            </div>
           </div>
+        </div>
 
-          {/* <button className="mb-6 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-semibold shadow-sm transition-all active:opacity-80 active:scale-98">
-            <PlusIcon className="w-4 h-4" />
-            <span className="font-manrope text-sm font-medium tracking-tight">MIFTAN Analysis</span>
-          </button> */}
-
-          <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 font-manrope text-sm font-medium tracking-tight ${
-                    isActive
-                      ? 'bg-white text-indigo-600 font-semibold shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'
-                  }`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="mt-auto border-t border-slate-200/50 pt-4 flex flex-col gap-1">
-            {/* <Link
-              href="/settings"
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-colors duration-200 font-manrope text-sm font-medium tracking-tight"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <Cog6ToothIcon className="w-5 h-5" />
-              Settings
-            </Link>
-            <Link
-              href="/support"
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-colors duration-200 font-manrope text-sm font-medium tracking-tight"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <QuestionMarkCircleIcon className="w-5 h-5" />
-              Support
-            </Link> */}
-
-            <div className="flex items-center gap-3 px-4 py-4 mt-2">
-              <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                {user.full_name ? user.full_name.charAt(0).toUpperCase() : '?'}
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          {Object.entries(groups).map(([groupName, items]) => (
+            <div key={groupName}>
+              <p className="px-3 mb-1.5 text-[0.58rem] font-semibold text-slate-500 uppercase tracking-widest select-none">
+                {groupName}
+              </p>
+              <div className="space-y-0.5">
+                {items.map((item) => {
+                  const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                        isActive
+                          ? 'bg-white/10 text-white'
+                          : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <item.icon
+                        className={`w-4 h-4 shrink-0 transition-colors ${
+                          isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'
+                        }`}
+                      />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {isActive && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-slate-900">{user.full_name || 'User'}</span>
-                <span className="text-[10px] text-slate-500">Admin profile</span>
-              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* User card */}
+        <div className="px-3 pb-4 pt-3 border-t border-white/5 shrink-0">
+          <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/5 border border-white/5">
+            <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white truncate leading-tight">
+                {user.full_name || 'User'}
+              </p>
+              <p className="text-[0.6rem] text-slate-500 truncate mt-0.5">
+                {user.email ?? 'Admin'}
+              </p>
             </div>
             <button
               onClick={logout}
-              className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors mt-2"
+              title="Sign out"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0"
             >
-              Logout
+              <ArrowLeftStartOnRectangleIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
