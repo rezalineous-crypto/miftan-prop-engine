@@ -125,9 +125,16 @@ export const getPropertyMonthlyConfig = (params?: { property_id?: string; year?:
 export const createPropertyMonthlyConfig = (configData: { property_id: number; year: number; month: number; market_adr: number; market_occupancy: number; paf: number; pace_threshold: number; nights_low_threshold: number; nights_high_threshold: number; adr_low_threshold: number; adr_high_threshold: number; early_month_guard_days: number; created_by: number; remarks: string }) =>
   apiClient.post('/api/com/property-monthly-config-service/', configData);
 
-export const createPropertyPerformance = (performanceData: { upload_id: number; approved_by: number }) =>
+export const createPropertyPerformance = (performanceData: { source_upload_id: number; approved_by: number }) =>
   apiClient.post('/api/com/property-performance-service/', performanceData);
-
+export const createPropertyPerformanceEntry = (performanceData: {
+  source_upload_id: number;
+  company_id: number;
+  property_id: number;
+  date: string;
+  rooms: number;
+  revenue: number;
+}) => apiClient.post('/api/com/property-performance-service/', performanceData);
 export const getPropertyPerformance = (params?: { property_id?: string; date?: string }) =>
   apiClient.get('/api/com/property-performance-service/', params);
 

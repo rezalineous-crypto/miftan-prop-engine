@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { getPropertyPerformance } from '../../api/client';
+import { getPropertyPerformance, getProperties, createPropertyPerformanceEntry } from '../../api/client';
 import DashboardLayout from '../../components/DashboardLayout';
 import {
   MagnifyingGlassIcon,
@@ -10,6 +10,7 @@ import {
   BanknotesIcon,
   MoonIcon,
   CheckBadgeIcon,
+  CheckCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 
@@ -32,6 +33,14 @@ interface PerformanceRecord {
   source_upload_id: number;
 }
 
+interface Property {
+  id: number;
+  company_id: number;
+  property_code: string;
+  property_name: string;
+  is_active: boolean;
+}
+
 const formatDate = (s: string) =>
   new Date(s).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -42,7 +51,18 @@ export default function DailyPerformancePage() {
   const [performance, setPerformance] = useState<PerformanceRecord[]>([]);
   const [filteredPerformance, setFilteredPerformance] = useState<PerformanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [error, setError] = useState('');
+  const [entryError, setEntryError] = useState('');
+  const [entrySuccess, setEntrySuccess] = useState('');
+  const [creatingEntry, setCreatingEntry] = useState(false);
+  const [entrySourceUploadId, setEntrySourceUploadId] = useState('');
+  const [entryCompanyId, setEntryCompanyId] = useState('');
+  const [entryPropertyId, setEntryPropertyId] = useState('');
+  const [entryDate, setEntryDate] = useState('');
+  const [entryRooms, setEntryRooms] = useState('');
+  const [entryRevenue, setEntryRevenue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchPerformanceData = useCallback(async () => {
@@ -58,7 +78,23 @@ export default function DailyPerformancePage() {
     }
   }, []);
 
-  useEffect(() => { fetchPerformanceData(); }, [fetchPerformanceData]);
+  const fetchProperties = useCallback(async () => {
+    setPropertiesLoading(true);
+    try {
+      const data = await getProperties();
+      const arr = Array.isArray(data) ? data : data?.results ?? data?.data ?? [];
+      setProperties(arr.filter((p: Property) => p.is_active));
+    } catch {
+      // Property list is optional for manual entry. Users can still provide IDs manually.
+    } finally {
+      setPropertiesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPerformanceData();
+    fetchProperties();
+  }, [fetchPerformanceData, fetchProperties]);
 
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -75,6 +111,50 @@ export default function DailyPerformancePage() {
       );
     }
   }, [searchTerm, performance]);
+
+  const handlePropertySelect = (value: string) => {
+    setEntryPropertyId(value);
+    const property = properties.find((p) => String(p.id) === value);
+    if (property) {
+      setEntryCompanyId(String(property.company_id));
+    }
+  };
+
+  const handleCreateEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEntryError('');
+    setEntrySuccess('');
+
+    if (!entryPropertyId || !entryCompanyId || !entryDate || !entryRooms || !entryRevenue) {
+      setEntryError('Please complete all required entry fields.');
+      return;
+    }
+
+    setCreatingEntry(true);
+    try {
+      await createPropertyPerformanceEntry({
+        source_upload_id: parseInt(entrySourceUploadId || '0', 10),
+        company_id: parseInt(entryCompanyId, 10),
+        property_id: parseInt(entryPropertyId, 10),
+        date: entryDate,
+        rooms: parseInt(entryRooms, 10),
+        revenue: parseFloat(entryRevenue),
+      });
+      setEntrySuccess('Daily performance entry created successfully.');
+      setEntrySourceUploadId('');
+      setEntryCompanyId('');
+      setEntryPropertyId('');
+      setEntryDate('');
+      setEntryRooms('');
+      setEntryRevenue('');
+      await fetchPerformanceData();
+      setTimeout(() => setEntrySuccess(''), 3000);
+    } catch {
+      setEntryError('Failed to create daily performance entry. Please try again.');
+    } finally {
+      setCreatingEntry(false);
+    }
+  };
 
   const totalRevenue = filteredPerformance.reduce((s, r) => s + r.revenue, 0);
   const totalRooms = filteredPerformance.reduce((s, r) => s + r.rooms, 0);
@@ -101,6 +181,117 @@ export default function DailyPerformancePage() {
           Daily Performance
         </h1>
         <p className="text-sm text-slate-400">Daily revenue and occupancy metrics across all properties.</p>
+      </div>
+
+      <div className="bg-white border border-gray-100 rounded-xl shadow-xs p-5 mb-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 font-headline">Manual Daily Entry</h2>
+            <p className="text-xs text-slate-400">Enter a single performance record using the property performance API.</p>
+          </div>
+        </div>
+
+        {entrySuccess && (
+          <div className="mb-4 flex items-start gap-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-3 rounded-lg">
+            <CheckCircleIcon className="w-4 h-4 shrink-0 mt-0.5" />
+            {entrySuccess}
+          </div>
+        )}
+
+        {entryError && (
+          <div className="mb-4 flex items-start gap-2.5 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+            <XCircleIcon className="w-4 h-4 shrink-0 mt-0.5" />
+            {entryError}
+          </div>
+        )}
+
+        <form onSubmit={handleCreateEntry} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Source Upload ID</label>
+            <input
+              type="number"
+              value={entrySourceUploadId}
+              onChange={(e) => setEntrySourceUploadId(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all"
+              placeholder="0"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Property</label>
+            <select
+              value={entryPropertyId}
+              onChange={(e) => handlePropertySelect(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all"
+            >
+              <option value="">Select a property</option>
+              {properties.map((property) => (
+                <option key={property.id} value={String(property.id)}>
+                  {property.property_name} ({property.property_code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Company ID</label>
+            <input
+              type="number"
+              value={entryCompanyId}
+              onChange={(e) => setEntryCompanyId(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all"
+              placeholder="Company ID"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
+            <input
+              type="date"
+              value={entryDate}
+              onChange={(e) => setEntryDate(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Rooms</label>
+            <input
+              type="number"
+              value={entryRooms}
+              onChange={(e) => setEntryRooms(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all"
+              placeholder="0"
+              min="0"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Revenue</label>
+            <input
+              type="number"
+              step="0.01"
+              value={entryRevenue}
+              onChange={(e) => setEntryRevenue(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all"
+              placeholder="0.00"
+              min="0"
+              required
+            />
+          </div>
+
+          <div className="lg:col-span-3 flex items-end justify-end">
+            <button
+              type="submit"
+              disabled={creatingEntry}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {creatingEntry ? 'Saving…' : 'Save Daily Entry'}
+            </button>
+          </div>
+        </form>
       </div>
 
       {error && (

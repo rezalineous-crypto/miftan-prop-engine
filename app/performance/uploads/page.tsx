@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { uploadPerformance, getPerformanceUploads, getPerformanceUploadDetails } from '../../api/client';
+import { uploadPerformance, getPerformanceUploads, getPerformanceUploadDetails, createPropertyPerformance } from '../../api/client';
 import { useAuth } from '../../auth/context';
 import DashboardLayout from '../../components/DashboardLayout';
 import UploadModal from '../UploadModal';
@@ -81,6 +81,7 @@ export default function PerformanceUploadsPage() {
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedUpload, setSelectedUpload] = useState<Upload | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [approvingUploadId, setApprovingUploadId] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [companyId, setCompanyId] = useState('');
   const [propertyId, setPropertyId] = useState('');
@@ -143,6 +144,32 @@ export default function PerformanceUploadsPage() {
       setError('Upload failed. Please try again.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleApprove = async (uploadId: number) => {
+    const userId = getUserId();
+    if (!userId) {
+      setError('Unable to determine current user for approval');
+      return;
+    }
+
+    setApprovingUploadId(uploadId);
+    setError('');
+    setSuccess('');
+
+    try {
+      await createPropertyPerformance({
+        source_upload_id: uploadId,
+        approved_by: userId,
+      });
+      setSuccess('Upload approved successfully');
+      await fetchUploads();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch {
+      setError('Approval failed. Please try again.');
+    } finally {
+      setApprovingUploadId(null);
     }
   };
 
@@ -277,14 +304,27 @@ export default function PerformanceUploadsPage() {
                     <td className="px-5 py-3.5 text-sm text-slate-500 whitespace-nowrap">{formatDate(upload.created_at)}</td>
                     <td className="px-5 py-3.5"><StatusBadge status={upload.status} /></td>
                     <td className="px-5 py-3.5 text-center">
-                      <button
-                        onClick={() => handleViewDetails(upload.id)}
-                        disabled={loadingDetails}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        <EyeIcon className="w-3.5 h-3.5" />
-                        View
-                      </button>
+                      <div className="flex flex-col items-center gap-2">
+                        <button
+                          onClick={() => handleViewDetails(upload.id)}
+                          disabled={loadingDetails}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <EyeIcon className="w-3.5 h-3.5" />
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleApprove(upload.id)}
+                          disabled={upload.status !== 'PENDING' || approvingUploadId === upload.id}
+                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-500 border border-emerald-600 px-2.5 py-1.5 rounded-lg transition-colors disabled:cursor-not-allowed"
+                        >
+                          {upload.status === 'PENDING'
+                            ? approvingUploadId === upload.id
+                              ? 'Approving...'
+                              : 'Approve'
+                            : 'Approved'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
